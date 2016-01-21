@@ -1,17 +1,23 @@
 package com.sora.puzzle.View;
 
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Message;
+import android.text.Layout;
+import android.text.StaticLayout;
+import android.text.TextPaint;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 
+import com.sora.puzzle.MainActivity;
 import com.sora.puzzle.R;
 import com.sora.puzzle.gamelogic.impl.logicImpl;
 import com.sora.puzzle.gamelogic.logic;
@@ -22,10 +28,16 @@ import com.sora.puzzle.gamelogic.logic;
  */
 public class Answer extends SurfaceView {
 
+    //上下文环境
+    Context mContext;
+
     //初始序列
     private static final String initSequence = "WRBBRRBBRRBBRRBB";
     //终止序列
     private static final String finalSequence = "WBRBBRBRRBRBBRBR";
+    //移动序列
+    private static String moveSequence = "";
+
     //每个单元的边距
     private static int WIDTH = 5;
     //每个单元之间的间距
@@ -41,6 +53,8 @@ public class Answer extends SurfaceView {
 
     //REDRAW命令
     private static final int REDRAW = 0x04;
+    //INTERRUPT命令
+    private static final int INTERRUPT = 0x05;
 
     //当前矩阵
     private int[][] pState = new int[4][4];
@@ -49,25 +63,44 @@ public class Answer extends SurfaceView {
     private int whitex;
     private int whitey;
 
+
+    //监听 算法是否允许完毕
+    private boolean logicOver = false;
+
+    //移动线程
+    private getMoveSequence move;
+
     /**
      * Answer界面的主函数
      * @param context
      */
     public Answer(Context context) {
         super(context);
+        mContext = context;
         //初始化参数
+        move = new getMoveSequence();
         pState = new int[][]{{WHITE, RED, BLUE, BLUE},{RED,RED,BLUE,BLUE},{RED,RED,BLUE,BLUE},{RED,RED,BLUE,BLUE}};
         whitex = 0;
         whitey = 0;
+        logicOver = false;
+        moveSequence = "";
         getHolder().addCallback(callback);
-        getMoveSequence();
-        setOnTouchListener(new OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                return false;
-            }
-        });
+        move.start();
+
     }
+
+
+    //监听  如果用户点击了物理返回键 强制终止进程
+//    @Override
+//    public boolean onKeyDown(int keyCode, KeyEvent event) {
+//        if (keyCode == KeyEvent.KEYCODE_BACK) {
+//            handler.sendEmptyMessage(INTERRUPT);
+//            return true;
+//        }
+//        else {
+//            return super.onKeyDown(keyCode, event);
+//        }
+//    }
 
     /**
      * SurfaceHolder.Callback 回调
@@ -122,6 +155,39 @@ public class Answer extends SurfaceView {
                         (j + 1) * WIDTH - SPACE, (i + 1) * WIDTH - SPACE), paint);
             }
         }
+
+        // 设置文字大小
+        paint.setTextSize(30);
+        // 设置画笔颜色
+        paint.setColor(Color.DKGRAY);
+
+
+        //设置移动序列
+
+        //设置TextPaint 解决多行文本的换行问题
+        TextPaint textPaint = new TextPaint();
+        //设置颜色
+        textPaint.setColor(Color.DKGRAY);
+        //设置字号大小
+        textPaint.setTextSize(50.0F);
+        //第三个参数为文本的行宽
+        StaticLayout layout = new StaticLayout("moveSequence:"+moveSequence,textPaint,WIDTH*7, Layout.Alignment.ALIGN_NORMAL,1.0F,0.0F,true);
+        //绘制起始点
+        canvas.translate(0, (float) ((COL + 0.5) * WIDTH + SPACE * 3));
+        //绘制文本
+        layout.draw(canvas);
+
+
+        //改变文本颜色
+        paint.setColor(Color.DKGRAY);
+        paint.setTextSize(50);
+        //判断算法是否执行完毕
+        if (!logicOver){
+            //绘制Waiting文本
+            canvas.drawText("Waiting......", WIDTH * 3, (float) (WIDTH * 7), paint);
+        }
+
+
         //取消Canvas的锁定 更新界面
         getHolder().unlockCanvasAndPost(canvas);
     }
@@ -167,33 +233,38 @@ public class Answer extends SurfaceView {
 
     }
 
+
+
     /**
      * 获取移动路径和执行移动路径 都是耗时操作， 应当都放在子线程中执行
      */
-    private void getMoveSequence() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                //获取游戏逻辑接口
-                logic gamelogic = new logicImpl();
-                //获取移动序列
-                final String moveSequence = gamelogic.search(initSequence,finalSequence);
-                for (int i = 0; i < moveSequence.length(); i++) {
-                    //线程强制休眠1秒 否则会报AndroidRuntime的错！！！！
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    //根据移动序列 更新当前矩阵
-                    parse(moveSequence.charAt(i));
-                    //发送消息给Handler 进行UI更新
-                    System.out.println("diection:"+moveSequence.charAt(i));
-                    handler.sendEmptyMessage(REDRAW);
+    class getMoveSequence extends Thread {
+        @Override
+        public void run() {
+            //获取游戏逻辑接口
+            logic gamelogic = new logicImpl();
+            //获取移动序列
+            moveSequence = gamelogic.search(initSequence,finalSequence);
+            //算法允许完毕 logicOver的值更新
+            logicOver = true;
+            for (int i = 0; i < moveSequence.length(); i++) {
+                //线程强制休眠1秒 否则会报AndroidRuntime的错！！！！
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
+                //根据移动序列 更新当前矩阵
+                parse(moveSequence.charAt(i));
+                //发送消息给Handler 进行UI更新
+//                    System.out.println("diection:"+moveSequence.charAt(i));
+                handler.sendEmptyMessage(REDRAW);
             }
-        }).start();
+        }
     }
+
+
+
 
     /**
      * Handler 接收子线程发送的REDRAW命令 在UI线程中更新界面
@@ -206,7 +277,16 @@ public class Answer extends SurfaceView {
                 case REDRAW:
                     redraw();
                     break;
+                case INTERRUPT:
+                    if (move != null && move.isAlive()){
+                        move.interrupt();
+                    }
+                    mContext.startActivity(new Intent(mContext, MainActivity.class));
+                    break;
             }
         }
     };
+
+
+
 }
