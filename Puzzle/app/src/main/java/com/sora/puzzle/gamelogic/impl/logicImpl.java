@@ -1,4 +1,6 @@
-package com.sora.puzzle;
+package com.sora.puzzle.gamelogic.impl;
+
+import com.sora.puzzle.gamelogic.logic;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -6,19 +8,17 @@ import java.util.List;
 import java.util.Set;
 
 /**
+ *
  * Created by Sora on 2016/1/20.
  *
- * 优化策略1 ： 使用List<Integer> lastD 记录上一步的运动方向   考虑到如果与上一次白块运动的方向恰好相反 那么会回到上一步运动前的状态 应避免这种情况的发生
- * 优化策略2 ： Set<String> set 记录已经生成过的序列 避免重复执行 极大程度提高了效率 从数学角度考虑 puzzle共有C(16,1)*C(15,8)=102960种状态 完全在可统计范围内 set的maxsize不会超过该数
- * TODO 优化策略3 ： 删除使用Cursor遍历过的序列 节省内存 该策略考虑到手机App运行时可能出现Out Of Memory的错误
+ * 优化策略1 ： 使用String sequence 序列保存当前Map的State 而不使用二维数组 从而极大的节省了空间  这也是最基本的优化策略
+ * 优化策略2 ： 使用List<Integer> lastD 记录上一步的运动方向   考虑到如果与上一次白块运动的方向恰好相反 那么会回到上一步运动前的状态 应避免这种情况的发生
+ * 优化策略3 ： Set<String> set 记录已经生成过的序列 避免重复执行 极大程度提高了效率 从数学角度考虑 puzzle共有C(16,1)*C(15,8)=102960种状态 完全在可统计范围内 set的maxsize不会超过该数
+ * TODO 优化策略4 ： 删除使用Cursor遍历过的序列 节省内存 该策略考虑到手机App运行时可能出现Out Of Memory的错误 但是可能会以增加运行时间为代价 暂时不作考虑
  */
-public class gamelogic {
+public class logicImpl implements logic {
 
-    //W-白色    R-红色    B-蓝色  按行遍历Map得到的序列
-    private static final String initSequence =  "WRBBRRBBRRBBRRBB";
-    //    private static final String finalSequence = "RRBBRBBBRWRBRRBB";
-    private static final String finalSequence = "RRBBRBBBRWRBRRBB";
-
+    //方向
     private static final int LEFT = 0x01;
     private static final int RIGHT = 0x02;
     private static final int UP = 0x03;
@@ -35,27 +35,10 @@ public class gamelogic {
     //记录所有产生过的序列
     private Set<String> set = new HashSet<String>();
 
-    /**
-     * 将序列添加进入sQueue
-     * @param sequence
-     */
-    private void addSQueue(String sequence){
-        length++;
-        sQueue.add(sequence);
-        set.add(sequence);
-    }
-
-    /**
-     *
-     * @param sequence
-     * @return 判断是否是最终序列
-     */
-    private boolean isFinal(String sequence){
-        return sequence.equals(finalSequence);
-    }
 
 
-    private String search(String initSequence){
+    @Override
+    public String search(String initSequence, String finalSequence) {
         String psequence = initSequence;
         String temp = null;
         //队列初始长度设置为-1
@@ -64,7 +47,7 @@ public class gamelogic {
         int cursor = 0;
         //标记是否找到路径
         boolean hasFind = false;
-        addSQueue(initSequence);
+        addQueue(initSequence);
         //初始化dQueue
         dQueue.add("");
         lastD.add(-1);
@@ -77,11 +60,14 @@ public class gamelogic {
                     //向左移动
                     case 0 :
                         temp = move(psequence,LEFT);
-                        if (temp != null && lastD.get(cursor)!= LEFT && !set.contains(temp)){
-                            addSQueue(temp);
+                        //排除 该移动不可行 上一步为向右移动 已经存在根据该移动得到的序列 3种情况
+                        if (temp != null && lastD.get(cursor)!= RIGHT && !set.contains(temp)){
+                            addQueue(temp);
                             dQueue.add(dQueue.get(cursor) + "L");
+                            //将该步的移动方向加入lastD List  便于之后调用
                             lastD.add(LEFT);
-                            if (isFinal(temp)){
+                            //判断移动后是否为最终序列
+                            if (temp.equals(finalSequence)){
                                 return dQueue.get(length);
                             }
                         }
@@ -89,11 +75,12 @@ public class gamelogic {
                     //向右移动
                     case 1 :
                         temp = move(psequence,RIGHT);
-                        if (temp != null && lastD.get(cursor)!= RIGHT && !set.contains(temp)){
-                            addSQueue(temp);
+                        //排除 该移动不可行 上一步为向左移动 已经存在根据该移动得到的序列 3种情况
+                        if (temp != null && lastD.get(cursor)!= LEFT && !set.contains(temp)){
+                            addQueue(temp);
                             dQueue.add(dQueue.get(cursor) + "R");
                             lastD.add(RIGHT);
-                            if (isFinal(temp)){
+                            if (temp.equals(finalSequence)){
                                 return dQueue.get(length);
                             }
                         }
@@ -101,11 +88,12 @@ public class gamelogic {
                     //向上移动
                     case 2 :
                         temp = move(psequence,UP);
-                        if (temp != null && lastD.get(cursor)!= UP && !set.contains(temp)){
-                            addSQueue(temp);
+                        //排除 该移动不可行 上一步为向下移动 已经存在根据该移动得到的序列 3种情况
+                        if (temp != null && lastD.get(cursor)!= DOWN && !set.contains(temp)){
+                            addQueue(temp);
                             dQueue.add(dQueue.get(cursor) + "U");
                             lastD.add(UP);
-                            if (isFinal(temp)){
+                            if (temp.equals(finalSequence)){
                                 return dQueue.get(length);
                             }
                         }
@@ -113,11 +101,12 @@ public class gamelogic {
                     //向下移动
                     case 3 :
                         temp = move(psequence,DOWN);
-                        if (temp != null && lastD.get(cursor)!= DOWN && !set.contains(temp)){
-                            addSQueue(temp);
+                        //排除 该移动不可行 上一步为向上移动 已经存在根据该移动得到的序列 3种情况
+                        if (temp != null && lastD.get(cursor)!= UP && !set.contains(temp)){
+                            addQueue(temp);
                             dQueue.add(dQueue.get(cursor) + "D");
                             lastD.add(DOWN);
-                            if (isFinal(temp)){
+                            if (temp.equals(finalSequence)){
                                 return dQueue.get(length);
                             }
                         }
@@ -132,6 +121,25 @@ public class gamelogic {
 
 
 
+    /**
+     *
+     * 将序列添加进入Queue 和 Set
+     * @param sequence
+     */
+    private void addQueue(String sequence){
+        length++;
+        sQueue.add(sequence);
+        set.add(sequence);
+    }
+
+    /**
+     *
+     * @param sequence  原序列
+     * @param direction 移动方向
+     * @return String   根据原序列和移动方向所确定的新序列
+     *
+     * 注意：如果根据移动方向移动将超出边界导致该移动不可行 则返回null
+     */
     private String move(String sequence , int direction){
         String newsequence = null;
         //返回W在sequence中的位置
@@ -184,6 +192,5 @@ public class gamelogic {
         }
         return newsequence;
     }
-
 
 }
