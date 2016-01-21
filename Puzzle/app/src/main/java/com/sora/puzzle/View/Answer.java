@@ -1,4 +1,4 @@
-package com.sora.puzzle;
+package com.sora.puzzle.View;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -12,13 +12,15 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 
+import com.sora.puzzle.R;
 import com.sora.puzzle.gamelogic.impl.logicImpl;
 import com.sora.puzzle.gamelogic.logic;
 
 /**
  * Created by Sora on 2016/1/20.
+ * Answer  答案
  */
-public class Puzzle extends SurfaceView {
+public class Answer extends SurfaceView {
 
     //初始序列
     private static final String initSequence = "WRBBRRBBRRBBRRBB";
@@ -37,6 +39,7 @@ public class Puzzle extends SurfaceView {
     private static final int RED = 0x02;
     private static final int BLUE = 0x03;
 
+    //REDRAW命令
     private static final int REDRAW = 0x04;
 
     //当前矩阵
@@ -46,7 +49,11 @@ public class Puzzle extends SurfaceView {
     private int whitex;
     private int whitey;
 
-    public Puzzle(Context context) {
+    /**
+     * Answer界面的主函数
+     * @param context
+     */
+    public Answer(Context context) {
         super(context);
         //初始化参数
         pState = new int[][]{{WHITE, RED, BLUE, BLUE},{RED,RED,BLUE,BLUE},{RED,RED,BLUE,BLUE},{RED,RED,BLUE,BLUE}};
@@ -62,7 +69,9 @@ public class Puzzle extends SurfaceView {
         });
     }
 
-
+    /**
+     * SurfaceHolder.Callback 回调
+     */
     SurfaceHolder.Callback callback = new SurfaceHolder.Callback() {
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
@@ -83,6 +92,9 @@ public class Puzzle extends SurfaceView {
         }
     };
 
+    /**
+     * redraw()  重新绘制界面
+     */
     private void redraw(){
         //锁定ServiceView对象 获取该SurfaceView上的Canvas
         Canvas canvas = getHolder().lockCanvas();
@@ -114,6 +126,10 @@ public class Puzzle extends SurfaceView {
         getHolder().unlockCanvasAndPost(canvas);
     }
 
+    /**
+     * 根据移动方向 更新矩阵
+     * @param direction
+     */
     private void parse(char direction) {
 
         //移动白块时使用  作为数据缓存
@@ -179,6 +195,9 @@ public class Puzzle extends SurfaceView {
         }).start();
     }
 
+    /**
+     * Handler 接收子线程发送的REDRAW命令 在UI线程中更新界面
+     */
     Handler handler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
