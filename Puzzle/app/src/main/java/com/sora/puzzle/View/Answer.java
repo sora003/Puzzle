@@ -19,6 +19,8 @@ import android.view.View;
 
 import com.sora.puzzle.MainActivity;
 import com.sora.puzzle.R;
+import com.sora.puzzle.gamelogic.highLevelLogic;
+import com.sora.puzzle.gamelogic.impl.highLevelLogicImpl;
 import com.sora.puzzle.gamelogic.impl.logicImpl;
 import com.sora.puzzle.gamelogic.logic;
 
@@ -32,9 +34,9 @@ public class Answer extends SurfaceView {
     Context mContext;
 
     //初始序列
-    private static final String initSequence = "WRBBRRBBRRBBRRBB";
+    private static final int initSequence = 0x00003333;
     //终止序列
-    private static final String finalSequence = "WBRBBRBRRBRBBRBR";
+    private static final int finalSequence = 0x00005A5A;
     //移动序列
     private static String moveSequence = "";
 
@@ -242,10 +244,10 @@ public class Answer extends SurfaceView {
         @Override
         public void run() {
             //获取游戏逻辑接口
-            logic gamelogic = new logicImpl();
+            highLevelLogic gamelogic = new highLevelLogicImpl();
             //获取移动序列
             moveSequence = gamelogic.search(initSequence,finalSequence);
-            //算法允许完毕 logicOver的值更新
+            //算法运行完毕 logicOver的值更新
             logicOver = true;
             for (int i = 0; i < moveSequence.length(); i++) {
                 //线程强制休眠1秒 否则会报AndroidRuntime的错！！！！
